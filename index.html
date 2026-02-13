@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login</title>
+
+<style>
+body{
+margin:0;
+font-family:Arial, sans-serif;
+background:#f5f5f5;
+}
+
+/* ===== LOGIN ===== */
+#loginBox{
+max-width:350px;
+margin:190px auto;
+background:#fff;
+padding:40px;
+border-radius:100px;
+box-shadow:0 2px 8px rgba(0,0,0,0.2);
+}
+
+#loginBox h2{
+text-align:center;
+color:#ff6600;
+}
+
+input{
+width:93%;
+padding:10px;
+margin:10px 0;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+button{
+width:100%;
+padding:10px;
+background:#ff6600;
+color:#fff;
+border:none;
+border-radius:6px;
+font-size:16px;
+}
+
+/* ===== ADMIN ===== */
+#adminPanel{
+display:none;
+}
+
+header{
+background:#ff6600;
+color:#fff;
+padding:15px;
+text-align:center;
+font-size:20px;
+}
+
+nav{
+display:flex;
+background:#fff;
+border-bottom:1px solid #ddd;
+}
+
+nav button{
+flex:1;
+padding:12px;
+border:none;
+background:none;
+font-size:12px;
+width:auto;
+}
+.action-btn{
+width:100%;
+padding:10px;
+background:#ff6600;
+color:#fff;
+border:none;
+border-radius:6px;
+font-size:16px;
+cursor:pointer;
+}
+
+nav button.active{
+color:#ff6600;
+font-weight:bold;
+border-bottom:2px solid #ff6600;
+}
+
+section{
+display:none;
+padding:15px;
+}
+
+section.active{
+display:block;
+}
+
+.card{
+background:#fff;
+padding:12px;
+border-radius:10px;
+margin-bottom:12px;
+box-shadow:0 2px 5px rgba(0,0,0,0.1);
+}
+
+.logout{
+background:red;
+margin:10px;
+}
+button:hover{
+opacity:0.9;
+}
+
+button:active{
+transform:scale(0.98);
+}
+/* ===== DASHBOARD ===== */
+.dash-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit,minmax(160px,1fr));
+  gap:15px;
+}
+
+.dash-card{
+  background:#fff;
+  padding:20px;
+  border-radius:16px;
+  box-shadow:0 4px 10px rgba(0,0,0,0.08);
+}
+
+.dash-card h4{
+  margin:0 0 10px;
+  font-size:16px;
+}
+
+.dash-value{
+  font-size:32px;
+  font-weight:bold;
+}
+/* ===== STATUS BADGE ===== */
+.badge{
+  padding:4px 10px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:bold;
+  color:#fff;
+}
+
+.badge.pending{ background:#f1c40f; }
+.badge.checking{ background:#3498db; }
+.badge.paid{ background:#2ecc71; }
+.badge.ship{ background:#9b59b6; }
+.badge.cancel{ background:#e74c3c; }
+.badge.expire{ background:#7f8c8d; }
+
+</style>
+</head>
+<body>
+
+<div id="loading" style="text-align:center;padding:50px;">
+กำลังโหลด...
+</div>
+<!-- ===== LOGIN ===== -->
+<div id="loginBox">
+<h2>𝕾𝖙𝖆𝖙𝖎𝖔𝖓 𝕶𝖎𝖓𝖌</h2>
+<input type="email" id="user" placeholder="อีเมลแอดมิน">
+<input type="password" id="pass" placeholder="รหัสผ่าน">
+<button onclick="login()">เข้าสู่ระบบ</button>
+</div>
+
+<!-- ===== ADMIN PANEL ===== -->
+<div id="adminPanel">
+
+<header>
+ระบบหลังบ้าน
+<button class="logout" onclick="logout()">ออกจากระบบ</button>
+</header>
+
+<nav>
+<button class="active" onclick="openTab('dashboard',this)">แดชบอร์ด</button>
+<button onclick="openTab('product',this)">สินค้า</button>
+<button onclick="openTab('order',this)">ออเดอร์</button>
+<button onclick="openTab('payment',this)">บัญชี</button>
+<button onclick="openTab('contact',this)">ติดต่อ</button>
+</nav>
+<section id="dashboard" class="active">
+  <div style="margin-bottom:15px;">
+  <button onclick="setRange('today')">📅 วันนี้</button>
+  <button onclick="setRange('yesterday')">⏪ เมื่อวาน</button>
+  <button onclick="setRange('month')">📆 เดือนนี้</button>
+
+  <!-- ปุ่ม Export -->
+  <button onclick="exportPaidOrders()">📤 Export (Paid)</button>
+</div>
+<canvas id="salesChart" height="120"></canvas>
+
+  <div class="dash-grid">
+    
+    <div class="dash-card">
+  <h4>💰 ยอดขาย (เงินเข้าแล้ว)</h4>
+  <div class="dash-value" id="totalSales">0</div>
+</div>
+<div class="dash-card">
+  <h4>📈 กำไรสุทธิ</h4>
+  <div class="dash-value" id="totalProfit">0</div>
+</div>
+
+<div class="dash-card">
+  <h4>🟢 ชำระเงินแล้ว</h4>
+  <div class="dash-value" id="paidCount">0</div>
+</div>
+
+<div class="dash-card">
+  <h4>🔵 รอตรวจสอบสลิป</h4>
+  <div class="dash-value" id="checkingCount">0</div>
+</div>
+
+<div class="dash-card">
+  <h4>🟡 รอชำระเงิน</h4>
+  <div class="dash-value" id="pendingCount">0</div>
+</div>
+
+  </div>
+
+</section>
+
+<section id="product">
+  <hr>
+<h3>เปลี่ยนโลโก้ร้าน</h3>
+<input type="file" id="logoFile" accept="image/*">
+<button class="action-btn" onclick="uploadLogo()">บันทึกโลโก้ใหม่</button>
+<hr>
+<div class="card">
+<h3>เพิ่มสินค้า</h3>
+
+<input id="pname" placeholder="ชื่อสินค้า">
+<input id="pscent" placeholder="กลิ่น">
+<input type="number" id="pprice" placeholder="ราคา">
+<input type="number" id="pcost" placeholder="ต้นทุนสินค้า">
+<input type="number" id="pstock" placeholder="สินค้าคงเหลือ">
+<input type="number" id="psold" placeholder="สินค้าขายแล้ว">
+<input type="file" id="pimg">
+
+<button class="action-btn" onclick="addProduct()">บันทึก</button>
+<hr>
+<h3>รายการสินค้า</h3>
+<div id="productList"></div>
+
+</div>
+</section>
+
+<section id="order">
+<div class="card">
+<h3>รายการออเดอร์</h3>
+<div style="margin-bottom:10px;">
+  <button onclick="setOrderFilter('all')">ทั้งหมด</button>
+  <button onclick="setOrderFilter('รอชำระเงิน')">รอชำระเงิน</button>
+  <button onclick="setOrderFilter('รอตรวจสอบ')">รอตรวจสอบ</button>
+  <button onclick="setOrderFilter('ชำระเงินแล้ว')">ชำระเงินแล้ว</button>
+</div>
+<div id="orderList"></div>
+</div>
+</section>
+
+<section id="payment">
+<div class="card">
+<h3>บัญชีรับเงิน</h3>
+
+<input id="pay_name" placeholder="ชื่อบัญชี">
+<input id="pay_bank" placeholder="ธนาคาร">
+<input id="pay_number" placeholder="เลขบัญชี">
+<input type="file" id="pay_qr" accept="image/*">
+
+<button class="action-btn" onclick="savePayment()">บันทึก</button>
+</div>
+</section>
+
+<section id="contact">
+<div class="card">
+<h3>ข้อมูลติดต่อ</h3>
+
+<input id="con_phone" placeholder="เบอร์โทร">
+<input id="con_line" placeholder="LINE">
+
+<button class="action-btn" onclick="saveContact()">บันทึก</button>
+</div>
+</section>
+
+</div>
+
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyD_PEsWuy3Ad7Wfl6V1KmLYUxX_V5MDxto",
+  authDomain: "openking-shop.firebaseapp.com",
+  databaseURL: "https://openking-shop-default-rtdb.firebaseio.com",
+  projectId: "openking-shop",
+  storageBucket: "openking-shop.appspot.com",
+  messagingSenderId: "408359377995",
+  appId: "1:408359377995:web:32f3c2b29a06fa01abc1ce"
+};
+
+if(!firebase.apps.length){
+  firebase.initializeApp(firebaseConfig);
+}
+
+const auth = firebase.auth();
+const db = firebase.database();
+
+// ===== DASHBOARD DATE RANGE =====
+auth.onAuthStateChanged(function(user){
+
+  const loading = document.getElementById("loading");
+
+  if(loading){
+    loading.style.display = "none";
+  }
+
+  if(user){
+    db.ref("users/"+user.uid+"/role").once("value").then(snap=>{
+      if(snap.val()==="admin"){
+        document.getElementById("loginBox").style.display="none";
+        document.getElementById("adminPanel").style.display="block";
+      }else{
+        auth.signOut();
+      }
+    });
+  }
+});
+
+</script>
+<script>
+// ===== LOGIN ADMIN ด้วย Firebase =====
+function login(){
+
+  let u = document.getElementById("user").value.trim();
+  let p = document.getElementById("pass").value.trim();
+
+  if(!u.includes("@")){
+    alert("กรุณากรอกอีเมลให้ถูกต้อง");
+    return;
+  }
+
+  auth.signInWithEmailAndPassword(u,p)
+  .then((cred)=>{
+    return db.ref("users/"+cred.user.uid+"/role").once("value");
+  })
+  .then((snapshot)=>{
+
+    if(snapshot.val()!=="admin"){
+  alert("คุณไม่มีสิทธิ์เข้าแอดมิน");
+  auth.signOut();
+}
+
+  })
+  .catch((err)=>{
+    alert("Error: "+err.message);
+  });
+
+}
+
+// ===== LOGOUT =====
+function logout(){
+  auth.signOut().then(()=>{
+    document.getElementById("loginBox").style.display="block";
+    document.getElementById("adminPanel").style.display="none";
+  });
+}
+
+// ===== เพิ่มสินค้า =====
+function addProduct(){
+
+let name = document.getElementById("pname").value;
+let scent = document.getElementById("pscent").value;
+let price = Number(document.getElementById("pprice").value);
+let cost  = Number(document.getElementById("pcost").value) || 0;
+let stock = Number(document.getElementById("pstock").value);
+let sold  = Number(document.getElementById("psold").value) || 0;
+let file  = document.getElementById("pimg").files[0];
+
+if(!name || !price || !file){
+  alert("กรอกข้อมูลไม่ครบ");
+  return;
+}
+
+let reader = new FileReader();
+
+reader.onload = function(e){
+
+  let base64Image = e.target.result;
+
+  db.ref("products").push({
+    name:name,
+    scent:scent,
+    price:price,
+    cost:cost,
+    stock:stock,
+    sold:sold,
+    img:base64Image
+  });
+
+  alert("เพิ่มสินค้าเรียบร้อย");
+  loadProductAdmin();
+
+  document.getElementById("pname").value="";
+  document.getElementById("pscent").value="";
+  document.getElementById("pprice").value="";
+  document.getElementById("pcost").value="";
+  document.getElementById("pstock").value="";
+  document.getElementById("psold").value="";
+  document.getElementById("pimg").value="";
+}
+
+reader.readAsDataURL(file);
+
+}
+
+// ===== สลับแท็บ =====
+function openTab(id, el){
+  let sec = document.querySelectorAll("section");
+  let btn = document.querySelectorAll("nav button");
+
+  sec.forEach(s => s.classList.remove("active"));
+  btn.forEach(b => b.classList.remove("active"));
+
+  document.getElementById(id).classList.add("active");
+  el.classList.add("active");
+}
+
+// ===== ORDER FILTER SYSTEM =====
+let currentOrderFilter = "all";
+
+function setOrderFilter(status){
+  currentOrderFilter = status;
+  loadOrders();
+}
+
+function loadOrders(){
+
+  db.ref("orders").on("value", function(snapshot){
+
+    document.getElementById("orderList").innerHTML="";
+
+    snapshot.forEach(function(child){
+
+      let o = child.val();
+
+      // 🔎 กรองสถานะ
+      if(currentOrderFilter !== "all" && o.status !== currentOrderFilter){
+        return;
+      }
+
+      let badgeClass = "";
+
+      if(o.status==="รอชำระเงิน") badgeClass="pending";
+      if(o.status==="รอตรวจสอบ") badgeClass="checking";
+      if(o.status==="ชำระเงินแล้ว") badgeClass="paid";
+      if(o.status==="จัดส่งแล้ว") badgeClass="ship";
+      if(o.status==="ยกเลิกแล้ว") badgeClass="cancel";
+      if(o.status==="หมดเวลา") badgeClass="expire";
+
+      let itemsHTML="";
+
+      if(o.items){
+        o.items.forEach(function(i){
+          itemsHTML += `<li>${i.name} x ${i.qty} = ${i.price*i.qty} บาท</li>`;
+        });
+      }
+
+      document.getElementById("orderList").innerHTML += `
+      <div class="card">
+        <p><b>ลูกค้า:</b> ${o.customer}</p>
+        <p><b>โทร:</b> ${o.phone}</p>
+        <p><b>ที่อยู่:</b> ${o.address}</p>
+
+        <ul>${itemsHTML}</ul>
+
+        <p><b>ยอด:</b> ${o.total || 0} บาท</p>
+
+        <p>
+          <span class="badge ${badgeClass}">${o.status}</span>
+        </p>
+
+        <p><b>เปลี่ยนสถานะ:</b>
+          <select onchange="updateStatus('${child.key}', this.value)">
+            <option value="รอชำระเงิน" ${o.status=="รอชำระเงิน"?"selected":""}>รอชำระเงิน</option>
+            <option value="รอตรวจสอบ" ${o.status=="รอตรวจสอบ"?"selected":""}>รอตรวจสอบ</option>
+            <option value="ชำระเงินแล้ว" ${o.status=="ชำระเงินแล้ว"?"selected":""}>ชำระเงินแล้ว</option>
+            <option value="จัดส่งแล้ว" ${o.status=="จัดส่งแล้ว"?"selected":""}>จัดส่งแล้ว</option>
+            <option value="ยกเลิกแล้ว" ${o.status=="ยกเลิกแล้ว"?"selected":""}>ยกเลิกแล้ว</option>
+          </select>
+        </p>
+
+        ${
+          o.slip
+          ? `<img src="${o.slip}" style="width:200px;border-radius:8px">`
+          : `<p style="color:red">ยังไม่ได้แนบสลิป</p>`
+        }
+
+        <button onclick="deleteOrder('${child.key}')">ลบออเดอร์</button>
+      </div>
+      `;
+    });
+
+  });
+
+}
+
+// โหลดครั้งแรก
+loadOrders();
+
+// ===== เปลี่ยนสถานะ =====
+function updateStatus(orderId, newStatus){
+
+  const orderRef = db.ref("orders/"+orderId);
+
+  orderRef.once("value").then(snapshot=>{
+
+    const order = snapshot.val();
+    if(!order) return;
+
+    // ===== ถ้าเปลี่ยนเป็น "ชำระเงินแล้ว" =====
+if(newStatus === "ชำระเงินแล้ว" && !order.counted){
+
+  let orderProfit = 0;
+  let promises = [];
+
+  order.items.forEach(item=>{
+
+    const productRef = db.ref("products/"+item.id);
+
+    const promise = productRef.transaction(p=>{
+
+      if(!p) return;
+
+      let stock = Number(p.stock) || 0;
+      let sold  = Number(p.sold) || 0;
+
+      if(stock < item.qty){
+  alert("สต๊อกไม่พอ!");
+  return p; // คืนค่าเดิมกลับ
+}
+
+      p.stock = stock - item.qty;
+      p.sold  = sold + item.qty;
+
+      const price = Number(p.price) || 0;
+      const cost  = Number(p.cost) || 0;
+
+      orderProfit += (price - cost) * item.qty;
+
+      return p;
+
+    });
+
+    promises.push(promise);
+
+  });
+
+  Promise.all(promises).then(()=>{
+
+  if(orderProfit < 0) orderProfit = 0;
+
+  db.ref("orders/"+orderId).update({
+    profit: Number(orderProfit) || 0,
+    counted: true,
+    status: "ชำระเงินแล้ว",
+    paidTime: Date.now()
+  });
+
+});
+
+}
+
+// ===== ถ้ายกเลิก และเคยตัดแล้ว =====
+if(newStatus === "ยกเลิกแล้ว" && order.counted){
+
+  if(order.items){
+    order.items.forEach(item=>{
+
+      const productRef = db.ref("products/"+item.id);
+
+      productRef.once("value").then(psnap=>{
+        const p = psnap.val();
+        if(!p) return;
+
+        const newStock = (Number(p.stock)||0) + item.qty;
+        const newSold  = (Number(p.sold)||0) - item.qty;
+
+        productRef.update({
+          stock: newStock,
+          sold: newSold < 0 ? 0 : newSold
+        });
+
+      });
+
+    });
+  }
+
+  db.ref("orders/"+orderId).update({
+    counted: false,
+    profit: 0
+  });
+
+}
+
+    // อัปเดตสถานะออเดอร์
+    orderRef.update({
+      status: newStatus,
+      paidTime: newStatus==="ชำระเงินแล้ว" ? Date.now() : order.paidTime || null
+    });
+
+  });
+}
+// ===== โหลดสินค้าสำหรับแอดมิน =====
+function loadProductAdmin(){
+
+db.ref("products").once("value", snapshot=>{
+  document.getElementById("productList").innerHTML="";
+
+  snapshot.forEach(child=>{
+    let p = child.val();
+
+    document.getElementById("productList").innerHTML += `
+      <div class="card">
+        <p><b>ชื่อ:</b> ${p.name}</p>
+        <p><b>กลิ่น:</b> ${p.scent}</p>
+        <p><b>ราคา:</b> ${p.price}</p>
+        <p><b>คงเหลือ:</b> ${p.stock}</p>
+
+        <button onclick="editProduct('${child.key}',
+        '${p.name}','${p.scent}','${p.price}','${p.stock}')">แก้ไข</button>
+
+        <button onclick="deleteProduct('${child.key}')">ลบ</button>
+      </div>
+    `;
+  });
+});
+
+}
+loadProductAdmin();
+// ===== ลบสินค้า =====
+function deleteProduct(id){
+  if(confirm("ต้องการลบสินค้านี้หรือไม่?")){
+    db.ref("products/"+id).remove();
+    loadProductAdmin();
+  }
+}
+
+// ===== แก้ไขสินค้า =====
+function editProduct(id,name,scent,price,stock){
+
+  let newName = prompt("ชื่อสินค้า",name);
+  let newScent = prompt("กลิ่น",scent);
+  let newPrice = prompt("ราคา",price);
+  let newStock = prompt("คงเหลือ",stock);
+
+  if(newName && newPrice){
+    db.ref("products/"+id).update({
+  name:newName,
+  scent:newScent,
+  price:Number(newPrice),
+  stock:Number(newStock)
+});
+
+    loadProductAdmin();
+  }
+
+}
+function uploadLogo(){
+
+let file = document.getElementById("logoFile").files[0];
+
+if(!file){
+  alert("กรุณาเลือกรูปโลโก้");
+  return;
+}
+
+if(file.size > 2 * 1024 * 1024){
+  alert("ไฟล์ต้องไม่เกิน 2MB");
+  return;
+}
+
+let reader = new FileReader();
+
+reader.onload = function(e){
+
+  let base64Logo = e.target.result;
+
+  db.ref("shop/logo").set(base64Logo);
+
+  alert("เปลี่ยนโลโก้เรียบร้อย");
+  document.getElementById("logoFile").value="";
+
+}
+
+reader.readAsDataURL(file);
+
+}
+// ===== บันทึกบัญชีรับเงิน =====
+function savePayment(){
+
+let name = document.getElementById("pay_name").value;
+let bank = document.getElementById("pay_bank").value;
+let number = document.getElementById("pay_number").value;
+let qrFile = document.getElementById("pay_qr").files[0];
+
+if(!name || !bank || !number){
+  alert("กรอกข้อมูลให้ครบ");
+  return;
+}
+
+if(qrFile){
+  let reader = new FileReader();
+  reader.onload = function(e){
+    db.ref("payment").set({
+      name: name,
+      bank: bank,
+      number: number,
+      qr: e.target.result
+    });
+    alert("บันทึกแล้ว");
+  }
+  reader.readAsDataURL(qrFile);
+}else{
+  db.ref("payment").update({
+    name: name,
+    bank: bank,
+    number: number
+  });
+  alert("บันทึกแล้ว");
+}
+
+}
+
+// ===== บันทึกข้อมูลติดต่อ =====
+function saveContact(){
+
+let phone = document.getElementById("con_phone").value;
+let line = document.getElementById("con_line").value;
+
+if(!phone || !line){
+  alert("กรอกข้อมูลให้ครบ");
+  return;
+}
+
+db.ref("contact").set({
+  phone:phone,
+  line:line
+}).then(()=>{
+
+  alert("บันทึกข้อมูลติดต่อแล้ว");
+
+  document.getElementById("con_phone").value="";
+  document.getElementById("con_line").value="";
+
+});
+
+}
+let rangeStart = null;
+let rangeEnd = null;
+let salesChart = null;
+
+function setRange(type){
+  const now = new Date();
+
+  if(type==="today"){
+    rangeStart = new Date(now.setHours(0,0,0,0)).getTime();
+    rangeEnd   = new Date(now.setHours(23,59,59,999)).getTime();
+  }
+
+  if(type==="yesterday"){
+    const y = new Date();
+    y.setDate(y.getDate()-1);
+    rangeStart = new Date(y.setHours(0,0,0,0)).getTime();
+    rangeEnd   = new Date(y.setHours(23,59,59,999)).getTime();
+  }
+
+  if(type==="month"){
+    const m = new Date();
+    rangeStart = new Date(m.getFullYear(), m.getMonth(), 1).getTime();
+    rangeEnd   = new Date(m.getFullYear(), m.getMonth()+1, 0, 23,59,59).getTime();
+  }
+
+  loadDashboard();
+}
+function renderChart(dataMap){
+
+  const labels = Object.keys(dataMap);
+  const values = Object.values(dataMap);
+
+  const ctx = document.getElementById("salesChart");
+
+  if(salesChart){
+    salesChart.destroy();
+  }
+
+  salesChart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "ยอดขาย (บาท)",
+        data: values
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+}
+// ===== DASHBOARD REALTIME (COMPAT FIX) =====
+function loadDashboard(){
+
+  db.ref("orders").on("value", function(snapshot){
+
+    let pending = 0;
+let checking = 0;
+let paid = 0;
+let totalSales = 0;
+let totalProfit = 0;
+
+    snapshot.forEach(function(child){
+
+  let order = child.val();
+
+  // ===== กรองตามช่วงวันที่ =====
+  if(rangeStart && rangeEnd){
+    if(!order.paidTime || order.paidTime < rangeStart || order.paidTime > rangeEnd){
+      return;
+    }
+  }
+
+  if(order.status === "รอชำระเงิน"){
+      pending++;
+  }
+
+  else if(order.status === "รอตรวจสอบ"){
+      checking++;
+  }
+
+  else if(
+  order.status === "ชำระเงินแล้ว" ||
+  order.status === "จัดส่งแล้ว"
+){
+      paid++;
+      totalSales += order.total || 0;
+      totalProfit += order.profit || 0;
+  }
+
+});
+
+    document.getElementById("pendingCount").innerText = pending;
+    document.getElementById("checkingCount").innerText = checking;
+    document.getElementById("paidCount").innerText = paid;
+    document.getElementById("totalSales").innerText = totalSales.toLocaleString();
+    document.getElementById("totalProfit").innerText = totalProfit.toLocaleString();
+
+  });
+
+}
+loadDashboard();
+
+/* ===== EXPORT PAID ORDERS ===== */
+function exportPaidOrders(){
+
+  db.ref("orders").once("value", snapshot=>{
+
+    let csv = "OrderID,Customer,Phone,Total,Status,Date\n";
+
+    snapshot.forEach(child=>{
+      const o = child.val();
+
+      if(o.status==="ชำระเงินแล้ว" || o.status==="จัดส่งแล้ว"){
+
+        const date = o.time
+          ? new Date(o.time).toLocaleString("th-TH")
+          : "";
+
+        csv += `${child.key},${o.customer || ""},${o.phone || ""},${o.total || 0},${o.status},${date}\n`;
+      }
+    });
+
+    downloadCSV(csv,"report_paid_orders.csv");
+  });
+}
+
+function downloadCSV(csv, filename){
+
+  const blob = new Blob(
+    ["\uFEFF" + csv],
+    { type: "text/csv;charset=utf-8;" }
+  );
+
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.setAttribute("download", filename);
+
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+// ===== ลบออเดอร์ =====
+function deleteOrder(orderId){
+
+  if(!confirm("ต้องการลบออเดอร์นี้หรือไม่?")) return;
+
+  db.ref("orders/"+orderId).remove()
+  .then(()=>{
+    alert("ลบออเดอร์เรียบร้อย");
+  })
+  .catch(err=>{
+    alert("เกิดข้อผิดพลาด: "+err.message);
+  });
+
+}
+// ===== ORDER SOUND NOTIFICATION =====
+let firstLoad = true;
+
+const audio = new Audio("https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg");
+
+db.ref("orders").limitToLast(1).on("child_added", function(snapshot){
+
+  if(firstLoad){
+    firstLoad = false;
+    return;
+  }
+
+  audio.play();
+
+  alert("🔔 มีออเดอร์ใหม่เข้ามา!");
+});
+// ===== AUTO EXPIRE ORDERS (ADMIN SIDE) =====
+function autoExpireOrders(){
+  db.ref("orders").once("value", snapshot=>{
+    snapshot.forEach(child=>{
+      let o = child.val();
+
+      if(
+        o.status === "รอชำระเงิน" &&
+        o.expireAt &&
+        Date.now() > o.expireAt
+      ){
+        db.ref("orders/"+child.key).update({
+          status: "หมดเวลา"
+        });
+      }
+
+    });
+  });
+}
+
+// เช็คทุก 1 นาที
+setInterval(autoExpireOrders, 60000);
+</script>
+</body>
+</html>
